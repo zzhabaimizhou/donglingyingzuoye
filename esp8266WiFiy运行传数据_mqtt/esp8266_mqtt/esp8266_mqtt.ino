@@ -1,10 +1,6 @@
 #include <ArduinoMqttClient.h>  // 引入ArduinoMqttClient库，用于实现MQTT协议(传输/接收)的通信功能
 #include <ESP8266WiFi.h>        // 引入ESP8266WiFi库，用于ESP8266模块连接WiFi网络
-#include <DFRobot_DHT11.h>      // 引入DFRobot_DHT11库，用于读取DHT11温湿度传感器的数据
 #include <ArduinoJson.h>       // 引入ArduinoJson库，用于处理JSON格式的数据
-
-DFRobot_DHT11 DHT;  // 创建一个DHT11对象，用于操作DHT11传感器
-#define DHT11_PIN 5  // 定义DHT11传感器连接到ESP8266的D1引脚
 
 char ssid[] = "vivo Y53s";    // 定义WiFi网络的SSID，即网络名称
 char pass[] = "987654321";    // 定义WiFi网络的密码
@@ -14,7 +10,7 @@ MqttClient mqttClient(wifiClient);  // 创建一个MqttClient对象，用于建�
 
 const char broker[]    = "a1ic4mlGik0.iot-as-mqtt.cn-shanghai.aliyuncs.com";  // 定义MQTT服务器的地址
 int        port        = 1883;  // 定义MQTT服务器的端口号
-
+const char willTopic[] = "arduino/will";
 const char inTopic[]   = "/sys/a1ic4mlGik0/esp8266_dev/thing/service/property/set";  // 定义接收消息的MQTT主题
 const char outTopic[]  = "/sys/a1ic4mlGik0/esp8266_dev/thing/event/property/post";  // 定义发送消息的MQTT主题
 
@@ -22,25 +18,16 @@ const long interval = 10000;  // 定义发送消息的时间间隔，单位为�
 unsigned long previousMillis = 0;  // 用于记录上次发送消息的时间
 
 int count = 0;  // 用于计数
-
 String inputString ="";  // 用于存储接收到的MQTT消息内容
 
 void setup() {
   // 初始化串口通信，波特率为9600
-  Serial.begin(9600);
+  Serial.begin(115200);
   while (!Serial) {
     ; // 等待串口连接成功
   }
   pinMode(4,OUTPUT);  // 将ESP8266的4号引脚设置为输出模式
 
-  // 尝试连接到WiFi网络
-  /*Serial.print("Attempting to connect to WPA SSID: ");
-  Serial.println(ssid);
-  while (WiFi.begin(ssid, pass) != WL_CONNECTED) {
-    // 如果连接失败，等待5秒后重试
-    Serial.print(".");
-    delay(1000);
-  }*/
   WiFi.begin(ssid,pass);
   while(WiFi.status()!=WL_CONNECTED){
     delay(1000);
@@ -139,6 +126,12 @@ void onMqttMessage(int messageSize) {
   Serial.print("', length ");
   Serial.print(messageSize);
   Serial.println(" bytes:");
+  
+  String topic = mqttClient.messageTopic();
+  if(topic == "/sys/k29cutlynzx/esp8266_dev/thing/event/property/post_reply"){
+    Serial.println("Ignored message from topic:/sys/k29cutlynzx/esp8266_dev/thing/event/property/post_reply");
+    return;
+  }
 
   // 读取消息内容
   while (mqttClient.available()) {
@@ -165,11 +158,11 @@ void onMqttMessage(int messageSize) {
       if(value ==0) {
         // 关
         Serial.println("off");
-        digitalWrite(4,HIGH);
+        digitalWrite(4,LOW);
       } else {
         // 开
         Serial.println("on");
-        digitalWrite(4,LOW);
+        digitalWrite(4,HIGH);
       }
       inputString="";  // 清空inputString变量
     }
